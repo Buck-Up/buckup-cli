@@ -6,3 +6,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+# Uses `../strongbox-core` for local development
+# uses version `0.1.0` from crates.io when published
+strongbox-core = { path = "../strongbox-core", version = "0.1.0" }
