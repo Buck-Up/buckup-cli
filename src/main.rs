@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         .about("add backup to configuration")
                         .arg(Arg::with_name("name").required(true))
                         .arg(Arg::with_name("dest").required(true))
-                        .arg(Arg::with_name("source").multiple(true).min_values(1)),
+                        .arg(Arg::with_name("source").required(true).multiple(true)),
                 ),
         )
         .get_matches();
