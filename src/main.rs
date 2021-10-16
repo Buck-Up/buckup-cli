@@ -46,10 +46,15 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
                 ("list-backups", Some(_)) => {
                     let config = load_config()?;
-                    println!("configured backups:");
-                    for b in config.backups {
-                        println!("{:?}", b);
-                    }
+                    println!(
+                        "{}",
+                        config
+                            .backups
+                            .iter()
+                            .map(|b| format!("{}", b))
+                            .collect::<Vec<String>>()
+                            .join("\n-----\n")
+                    );
                 }
                 ("add-backup", Some(add_backup)) => {
                     let mut config = load_config()?;
