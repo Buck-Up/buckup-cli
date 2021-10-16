@@ -5,10 +5,69 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use smartsync_core::Config;
+use clap::{crate_authors, crate_version, App, Arg, SubCommand};
+use smartsync_core::{Backup, Config};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    init_config()?;
+    let matches = App::new("Smart Sync CLI")
+        .version(crate_version!())
+        .author(crate_authors!())
+        .subcommand(
+            SubCommand::with_name("config")
+                .about("manage configuration")
+                .subcommand(SubCommand::with_name("init").about("initialize configuration"))
+                .subcommand(
+                    SubCommand::with_name("list-backups").about("list backups in configuration"),
+                )
+                .subcommand(
+                    SubCommand::with_name("add-backup")
+                        .about("add backup to configuration")
+                        .arg(Arg::with_name("name").required(true))
+                        .arg(Arg::with_name("dest").required(true))
+                        .arg(Arg::with_name("source").multiple(true).min_values(1)),
+                ),
+        )
+        .get_matches();
+
+    match matches.subcommand() {
+        ("config", Some(config_cmd)) => {
+            match config_cmd.subcommand() {
+                ("init", Some(_)) => {
+                    init_config()?;
+                }
+                ("list-backups", Some(_)) => {
+                    let config = load_config()?;
+                    println!("configured backups:");
+                    for b in config.backups {
+                        println!("{:?}", b);
+                    }
+                }
+                ("add-backup", Some(add_backup)) => {
+                    let mut config = load_config()?;
+
+                    // all args required so unwrap is safe
+                    let name = add_backup.value_of("name").unwrap();
+                    let sources = add_backup.values_of("source").unwrap();
+                    let dest = add_backup.value_of("dest").unwrap();
+                    let mut new_backup =
+                        Backup::new(name.to_owned(), Path::new(dest).to_path_buf());
+                    for s in sources {
+                        new_backup.add_source(Path::new(s).to_path_buf());
+                    }
+
+                    config.add_backup(new_backup);
+
+                    save_config(&config)?;
+                }
+                _ => {
+                    println!("{}", config_cmd.usage());
+                }
+            }
+        }
+        _ => {
+            println!("{}", matches.usage());
+        }
+    }
 
     Ok(())
 }
