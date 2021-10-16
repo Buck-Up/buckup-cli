@@ -85,7 +85,7 @@ fn init_config() -> Result<(), Box<dyn Error>> {
     let config = load_config()?;
     save_config(&config)?;
 
-    let contents = toml::to_string(&config)?;
+    let contents = toml::to_string_pretty(&config)?;
     println!("config initialized at {:?}", config_path());
     println!("{}", contents);
 
@@ -112,7 +112,7 @@ fn load_config() -> Result<Config, Box<dyn Error>> {
 fn save_config(config: &Config) -> Result<(), Box<dyn Error>> {
     let f = config_path();
 
-    let contents = toml::to_string(config)?;
+    let contents = toml::to_string_pretty(config)?;
     fs::write(f, contents)?;
 
     Ok(())
