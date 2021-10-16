@@ -22,9 +22,18 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .subcommand(
                     SubCommand::with_name("add-backup")
                         .about("add backup to configuration")
-                        .arg(Arg::with_name("name").required(true))
-                        .arg(Arg::with_name("dest").required(true))
-                        .arg(Arg::with_name("source").required(true).multiple(true)),
+                        .arg(Arg::with_name("name").required(true).help("name of backup"))
+                        .arg(
+                            Arg::with_name("dest")
+                                .required(true)
+                                .help("destination path"),
+                        )
+                        .arg(
+                            Arg::with_name("source")
+                                .required(true)
+                                .multiple(true)
+                                .help("source path(s)"),
+                        ),
                 ),
         )
         .get_matches();
