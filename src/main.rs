@@ -1,12 +1,7 @@
-use std::{
-    env,
-    error::Error,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{env, error::Error, path::Path};
 
 use clap::{crate_authors, crate_version, App, Arg, SubCommand};
-use smartsync_core::{Backup, Config};
+use smartsync_core::{config, Backup};
 
 fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("Smart Sync CLI")
@@ -88,10 +83,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         ("config", Some(config_cmd)) => {
             match config_cmd.subcommand() {
                 ("init", Some(_)) => {
-                    init_config()?;
+                    config::initialize_config()?;
                 }
                 ("list-backups", Some(_)) => {
-                    let config = load_config()?;
+                    let config = config::load_config()?;
                     println!(
                         "{}",
                         config
@@ -103,7 +98,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                     );
                 }
                 ("add-backup", Some(add_backup)) => {
-                    let mut config = load_config()?;
+                    let mut config = config::load_config()?;
 
                     // all args required so unwrap is safe
                     let name = add_backup.value_of("name").unwrap();
@@ -117,54 +112,54 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                     config.add_backup(new_backup);
 
-                    save_config(&config)?;
+                    config::save_config(&config)?;
                 }
                 ("edit-backup", Some(edit_backup)) => {
                     match edit_backup.subcommand() {
                         ("rename", Some(rename)) => {
-                            let mut config = load_config()?;
+                            let mut config = config::load_config()?;
 
                             // all args required so unwrap is safe
                             let name = rename.value_of("name").unwrap();
                             let new_name = rename.value_of("new_name").unwrap();
 
                             for b in &mut config.backups {
-                                if &b.name == name {
+                                if b.name == name {
                                     b.name = new_name.to_string();
                                 }
                             }
 
-                            save_config(&config)?;
+                            config::save_config(&config)?;
                         }
                         ("set-dest", Some(set_dest)) => {
-                            let mut config = load_config()?;
+                            let mut config = config::load_config()?;
 
                             // all args required so unwrap is safe
                             let name = set_dest.value_of("name").unwrap();
                             let dest = set_dest.value_of("dest").unwrap();
 
                             for b in &mut config.backups {
-                                if &b.name == name {
+                                if b.name == name {
                                     b.dest = Path::new(dest).to_path_buf();
                                 }
                             }
 
-                            save_config(&config)?;
+                            config::save_config(&config)?;
                         }
                         ("add-source", Some(add_source)) => {
-                            let mut config = load_config()?;
+                            let mut config = config::load_config()?;
 
                             // all args required so unwrap is safe
                             let name = add_source.value_of("name").unwrap();
                             let source = add_source.value_of("source").unwrap();
 
                             for b in &mut config.backups {
-                                if &b.name == name {
+                                if b.name == name {
                                     b.sources.push(Path::new(source).to_path_buf());
                                 }
                             }
 
-                            save_config(&config)?;
+                            config::save_config(&config)?;
                         }
                         _ => {
                             println!("{}", edit_backup.usage());
@@ -180,43 +175,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             println!("{}", matches.usage());
         }
     }
-
-    Ok(())
-}
-
-fn init_config() -> Result<(), Box<dyn Error>> {
-    let config = load_config()?;
-    save_config(&config)?;
-
-    let contents = toml::to_string_pretty(&config)?;
-    println!("config initialized at {:?}", config_path());
-    println!("{}", contents);
-
-    Ok(())
-}
-
-fn config_path() -> PathBuf {
-    let home_dir = env::var("HOME").unwrap();
-    Path::new(&home_dir).join(".strongbox.toml")
-}
-
-fn load_config() -> Result<Config, Box<dyn Error>> {
-    let f = config_path();
-
-    if f.exists() {
-        let contents = fs::read_to_string(f)?;
-        let config = toml::from_str(&contents)?;
-        Ok(config)
-    } else {
-        Ok(Config::default())
-    }
-}
-
-fn save_config(config: &Config) -> Result<(), Box<dyn Error>> {
-    let f = config_path();
-
-    let contents = toml::to_string_pretty(config)?;
-    fs::write(f, contents)?;
 
     Ok(())
 }
