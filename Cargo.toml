@@ -10,4 +10,3 @@ edition = "2021"
 # uses version `0.1.0` from crates.io when published
 smartsync-core = { path = "../core", version = "0.1.0" }
 clap = "2.33"
-toml = "0.5"

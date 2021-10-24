@@ -102,7 +102,6 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "smartsync-core",
- "toml",
 ]
 
 [[package]]
@@ -110,6 +109,7 @@ name = "smartsync-core"
 version = "0.1.0"
 dependencies = [
  "serde",
+ "toml",
 ]
 
 [[package]]
