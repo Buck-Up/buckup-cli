@@ -1,7 +1,7 @@
 use std::{error::Error, path::Path};
 
 use clap::{Parser, Subcommand};
-use smartsync_core::{config, registry, DeviceConfig, FileSync};
+use smartsync_core::{config, registry, Backup, DeviceConfig, FileSync};
 
 type SmartSyncResult = Result<(), Box<dyn Error>>;
 
@@ -119,6 +119,8 @@ enum RegistryConfigCommand {
     ListBackups,
     /// Add backup to registry
     AddBackup {
+        /// Name of backup
+        name: String,
         /// Path to backup
         path: String,
     },
@@ -137,7 +139,7 @@ fn main() -> SmartSyncResult {
                     config::initialize_config(Path::new(&path))?;
                 }
                 BackupsConfigCommand::AddDevice { path, device } => {
-                    add_device(&path, &device)?;
+                    add_device(&path, device)?;
                 }
                 BackupsConfigCommand::AddBackup {
                     path,
@@ -146,7 +148,7 @@ fn main() -> SmartSyncResult {
                     dest,
                     sources,
                 } => {
-                    add_device_backup(&path, &device, &name, sources, &dest)?;
+                    add_device_backup(&path, &device, name, sources, &dest)?;
                 }
                 BackupsConfigCommand::EditBackup { command } => match command {
                     EditBackupConfigCommand::RenameBackup {
@@ -183,8 +185,8 @@ fn main() -> SmartSyncResult {
                     let reg = registry::load_registry()?;
                     println!("{}", reg);
                 }
-                RegistryConfigCommand::AddBackup { path } => {
-                    register_backup(&path)?;
+                RegistryConfigCommand::AddBackup { name, path } => {
+                    register_backup(&name, &path)?;
                 }
             },
         },
@@ -193,12 +195,18 @@ fn main() -> SmartSyncResult {
     Ok(())
 }
 
-fn register_backup(backup_path: &str) -> SmartSyncResult {
+fn register_backup(name: &str, backup_path: &str) -> SmartSyncResult {
+    let path = Path::new(&backup_path);
+
     let mut reg = registry::load_registry()?;
-
-    reg.add_backup(Path::new(backup_path).to_path_buf());
-
+    let backup = Backup::new(name.to_owned(), path.to_path_buf());
+    reg.add_backup(backup);
     registry::save_registry(&reg)?;
+
+    let mut config = config::load_config(path)?;
+    let device = DeviceConfig::new(name.to_owned());
+    config.add_device(device);
+    config::save_config(&config, path)?;
 
     Ok(())
 }
@@ -219,10 +227,10 @@ fn list_devices(backup_path: &str) -> SmartSyncResult {
     Ok(())
 }
 
-fn add_device(backup_path: &str, name: &str) -> SmartSyncResult {
+fn add_device(backup_path: &str, name: String) -> SmartSyncResult {
     let mut config = config::load_config(Path::new(backup_path))?;
 
-    let device = DeviceConfig::new(name.to_owned());
+    let device = DeviceConfig::new(name);
     config.add_device(device);
     config::save_config(&config, Path::new(backup_path))?;
 
@@ -232,7 +240,7 @@ fn add_device(backup_path: &str, name: &str) -> SmartSyncResult {
 fn add_device_backup(
     backup_path: &str,
     device: &str,
-    name: &str,
+    name: String,
     sources: Vec<String>,
     dest: &str,
 ) -> SmartSyncResult {
@@ -242,7 +250,7 @@ fn add_device_backup(
     for device_config in &mut config.devices {
         if device_config.name == device {
             device_matched = true;
-            let mut sync = FileSync::new(name.to_owned(), Path::new(dest).to_path_buf());
+            let mut sync = FileSync::new(name, Path::new(dest).to_path_buf());
             for s in sources {
                 sync.add_source(Path::new(&s).to_path_buf());
             }
