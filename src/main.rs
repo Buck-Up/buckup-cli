@@ -1,216 +1,193 @@
-use std::{env, error::Error, path::Path};
+use std::{error::Error, path::Path};
 
-use clap::{crate_authors, crate_version, App, Arg};
+use clap::{Parser, Subcommand};
 use smartsync_core::{config, registry, DeviceConfig, FileSync};
 
 type SmartSyncResult = Result<(), Box<dyn Error>>;
 
+#[derive(Parser, Debug)]
+#[clap(author, version)]
+struct Args {
+    #[clap(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand, Debug)]
+enum Command {
+    /// Manage configuration
+    Config {
+        #[clap(subcommand)]
+        command: ConfigCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ConfigCommand {
+    /// Manage backup configuration
+    Backups {
+        #[clap(subcommand)]
+        command: BackupsConfigCommand,
+    },
+    /// Manage registry
+    Registry {
+        #[clap(subcommand)]
+        command: RegistryConfigCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum BackupsConfigCommand {
+    /// List devices in backup configuration
+    ListDevices {
+        /// Path to backup
+        path: String,
+    },
+    /// Initialize backup configuration
+    Init {
+        /// Path to backup
+        path: String,
+    },
+    /// Add device to backup configuration
+    AddDevice {
+        /// Path to backup
+        path: String,
+        /// Name of device
+        device: String,
+    },
+    /// Add backup to configuration
+    AddBackup {
+        /// Path to backup
+        path: String,
+        /// Name of device
+        device: String,
+        /// Name of backup
+        name: String,
+        /// Destination path
+        dest: String,
+        /// Source path(s)
+        sources: Vec<String>,
+    },
+    /// Edit backup configuration
+    EditBackup {
+        #[clap(subcommand)]
+        command: EditBackupConfigCommand,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum EditBackupConfigCommand {
+    /// Rename backup in configuration
+    RenameBackup {
+        /// Path to backup
+        path: String,
+        /// Name of device
+        device: String,
+        /// Current name of backup
+        name: String,
+        /// New name to use
+        new_name: String,
+    },
+    /// Set backup destination in configuration
+    SetDest {
+        /// Path to backup
+        path: String,
+        /// Name of device
+        device: String,
+        /// Name of backup to edit
+        name: String,
+        /// New dest to use
+        dest: String,
+    },
+    /// Add source to backup configuration
+    AddSource {
+        /// Path to backup
+        path: String,
+        /// Name of device
+        device: String,
+        /// Name of backup to edit
+        name: String,
+        /// New source to add
+        source: String,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum RegistryConfigCommand {
+    /// Initialize registry
+    Init,
+    /// List backups in registry
+    ListBackups,
+    /// Add backup to registry
+    AddBackup {
+        /// Path to backup
+        path: String,
+    },
+}
+
 fn main() -> SmartSyncResult {
-    let mut edit_backup_cmd = App::new("edit-backup")
-        .about("edit backup for device")
-        .subcommand(
-            App::new("rename")
-                .about("update name of backup")
-                .arg(Arg::new("path").required(true).help("path to backup"))
-                .arg(Arg::new("device").required(true).help("name of device"))
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("name of backup to edit"),
-                )
-                .arg(
-                    Arg::new("new_name")
-                        .required(true)
-                        .help("new name for backup"),
-                ),
-        )
-        .subcommand(
-            App::new("set-dest")
-                .about("set new dest for backup")
-                .arg(Arg::new("path").required(true).help("path to backup"))
-                .arg(Arg::new("device").required(true).help("name of device"))
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("name of backup to edit"),
-                )
-                .arg(
-                    Arg::new("dest")
-                        .required(true)
-                        .help("new destination path for backup"),
-                ),
-        )
-        .subcommand(
-            App::new("add-source")
-                .about("add new source to backup")
-                .arg(Arg::new("path").required(true).help("path to backup"))
-                .arg(Arg::new("device").required(true).help("name of device"))
-                .arg(
-                    Arg::new("name")
-                        .required(true)
-                        .help("name of backup to edit"),
-                )
-                .arg(
-                    Arg::new("source")
-                        .required(true)
-                        .help("new source path for backup"),
-                ),
-        );
+    let args = Args::parse();
 
-    let edit_backup_usage = edit_backup_cmd.render_usage();
-
-    let mut backups_cmd = App::new("backups")
-        .about("manage backups")
-        .subcommand(
-            App::new("list-devices")
-                .about("list devices in backup")
-                .arg(Arg::new("path").required(true).help("path to backup")),
-        )
-        .subcommand(
-            App::new("init")
-                .about("initialize a backup")
-                .arg(Arg::new("path").required(true).help("path to backup")),
-        )
-        .subcommand(
-            App::new("add-device")
-                .about("add device")
-                .arg(Arg::new("path").required(true).help("path to backup"))
-                .arg(Arg::new("device").required(true).help("name of device")),
-        )
-        .subcommand(
-            App::new("add-backup")
-                .about("add backup for device")
-                .arg(Arg::new("path").required(true).help("path to backup"))
-                .arg(Arg::new("device").required(true).help("name of device"))
-                .arg(Arg::new("name").required(true).help("name of backup"))
-                .arg(Arg::new("dest").required(true).help("destination path"))
-                .arg(
-                    Arg::new("source")
-                        .required(true)
-                        .multiple_occurrences(true)
-                        .help("source path(s)"),
-                ),
-        )
-        .subcommand(edit_backup_cmd);
-
-    let backups_usage = backups_cmd.render_usage();
-
-    let mut registry_cmd = App::new("registry")
-        .about("manage registry")
-        .subcommand(App::new("init").about("initialize registry"))
-        .subcommand(App::new("list-backups").about("list backups in registry"))
-        .subcommand(
-            App::new("add-backup")
-                .about("add backup to registry")
-                .arg(Arg::new("path").required(true).help("path to backup")),
-        );
-
-    let registry_usage = registry_cmd.render_usage();
-
-    let mut config_cmd = App::new("config")
-        .about("manage configuration")
-        .subcommand(backups_cmd)
-        .subcommand(registry_cmd);
-
-    let config_usage = config_cmd.render_usage();
-
-    let mut app = App::new("Smart Sync CLI")
-        .version(crate_version!())
-        .author(crate_authors!())
-        .subcommand(config_cmd);
-
-    let app_usage = app.render_usage();
-
-    let matches = app.get_matches();
-
-    match matches.subcommand() {
-        Some(("config", config_matches)) => match config_matches.subcommand() {
-            Some(("backups", backups)) => match backups.subcommand() {
-                Some(("list-devices", list_devices_matches)) => {
-                    let backup_path = list_devices_matches.value_of("path").unwrap();
-
-                    list_devices(backup_path)?;
+    match args.command {
+        Command::Config { command } => match command {
+            ConfigCommand::Backups { command } => match command {
+                BackupsConfigCommand::ListDevices { path } => {
+                    list_devices(&path)?;
                 }
-                Some(("init", init)) => {
-                    let backup_path = init.value_of("path").unwrap();
-
-                    config::initialize_config(Path::new(backup_path))?;
+                BackupsConfigCommand::Init { path } => {
+                    config::initialize_config(Path::new(&path))?;
                 }
-                Some(("add-device", add_device_matches)) => {
-                    let backup_path = add_device_matches.value_of("path").unwrap();
-                    let name = add_device_matches.value_of("device").unwrap();
-
-                    add_device(backup_path, name)?;
+                BackupsConfigCommand::AddDevice { path, device } => {
+                    add_device(&path, &device)?;
                 }
-                Some(("add-backup", add_backup_matches)) => {
-                    let backup_path = add_backup_matches.value_of("path").unwrap();
-                    let device = add_backup_matches.value_of("device").unwrap();
-                    let name = add_backup_matches.value_of("name").unwrap();
-                    let sources = add_backup_matches
-                        .values_of("source")
-                        .unwrap()
-                        .collect::<Vec<_>>();
-                    let dest = add_backup_matches.value_of("dest").unwrap();
-
-                    add_device_backup(backup_path, device, name, sources, dest)?;
+                BackupsConfigCommand::AddBackup {
+                    path,
+                    device,
+                    name,
+                    dest,
+                    sources,
+                } => {
+                    add_device_backup(&path, &device, &name, sources, &dest)?;
                 }
-                Some(("edit-backup", edit_backup)) => match edit_backup.subcommand() {
-                    Some(("rename", rename)) => {
-                        let backup_path = rename.value_of("path").unwrap();
-                        let device = rename.value_of("device").unwrap();
-                        let name = rename.value_of("name").unwrap();
-                        let new_name = rename.value_of("new_name").unwrap();
-
-                        rename_backup(backup_path, device, name, new_name)?;
+                BackupsConfigCommand::EditBackup { command } => match command {
+                    EditBackupConfigCommand::RenameBackup {
+                        path,
+                        device,
+                        name,
+                        new_name,
+                    } => {
+                        rename_backup(&path, &device, &name, &new_name)?;
                     }
-                    Some(("set-dest", set_dest)) => {
-                        let backup_path = set_dest.value_of("path").unwrap();
-                        let device = set_dest.value_of("device").unwrap();
-                        let name = set_dest.value_of("name").unwrap();
-                        let dest = set_dest.value_of("dest").unwrap();
-
-                        set_backup_dest(backup_path, device, name, dest)?;
+                    EditBackupConfigCommand::SetDest {
+                        path,
+                        device,
+                        name,
+                        dest,
+                    } => {
+                        set_backup_dest(&path, &device, &name, &dest)?;
                     }
-                    Some(("add-source", add_source)) => {
-                        let backup_path = add_source.value_of("path").unwrap();
-                        let device = add_source.value_of("device").unwrap();
-                        let name = add_source.value_of("name").unwrap();
-                        let source = add_source.value_of("source").unwrap();
-
-                        add_backup_source(backup_path, device, name, source)?;
-                    }
-                    _ => {
-                        println!("{}", edit_backup_usage);
+                    EditBackupConfigCommand::AddSource {
+                        path,
+                        device,
+                        name,
+                        source,
+                    } => {
+                        add_backup_source(&path, &device, &name, &source)?;
                     }
                 },
-                _ => {
-                    println!("{}", backups_usage);
-                }
             },
-            Some(("registry", registry_matches)) => match registry_matches.subcommand() {
-                Some(("init", _)) => {
+            ConfigCommand::Registry { command } => match command {
+                RegistryConfigCommand::Init => {
                     registry::initialize_registry()?;
                 }
-                Some(("list-backups", _)) => {
+                RegistryConfigCommand::ListBackups => {
                     let reg = registry::load_registry()?;
                     println!("{}", reg);
                 }
-                Some(("add-backup", add_backup)) => {
-                    let backup_path = add_backup.value_of("path").unwrap();
-
-                    register_backup(backup_path)?;
-                }
-                _ => {
-                    println!("{}", registry_usage);
+                RegistryConfigCommand::AddBackup { path } => {
+                    register_backup(&path)?;
                 }
             },
-            _ => {
-                println!("{}", config_usage);
-            }
         },
-        _ => {
-            println!("{}", app_usage);
-        }
     }
 
     Ok(())
@@ -256,7 +233,7 @@ fn add_device_backup(
     backup_path: &str,
     device: &str,
     name: &str,
-    sources: Vec<&str>,
+    sources: Vec<String>,
     dest: &str,
 ) -> SmartSyncResult {
     let mut config = config::load_config(Path::new(backup_path))?;
@@ -267,7 +244,7 @@ fn add_device_backup(
             device_matched = true;
             let mut sync = FileSync::new(name.to_owned(), Path::new(dest).to_path_buf());
             for s in sources {
-                sync.add_source(Path::new(s).to_path_buf());
+                sync.add_source(Path::new(&s).to_path_buf());
             }
             device_config.add_sync(sync);
             break;
