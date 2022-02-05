@@ -1,7 +1,7 @@
 use std::{error::Error, path::Path};
 
 use clap::{Parser, Subcommand};
-use smartsync_core::{config, registry, Backup, DeviceConfig, FileSync};
+use smartsync_core::{config, registry, runner, Backup, DeviceConfig, FileSync};
 
 type SmartSyncResult = Result<(), Box<dyn Error>>;
 
@@ -18,6 +18,16 @@ enum Command {
     Config {
         #[clap(subcommand)]
         command: ConfigCommand,
+    },
+    /// Run a backup
+    Backup {
+        /// Path to backup
+        path: String,
+        /// Name of device
+        device: String,
+        /// Print files that would be copied and exit
+        #[clap(long)]
+        dry_run: bool,
     },
 }
 
@@ -190,6 +200,13 @@ fn main() -> SmartSyncResult {
                 }
             },
         },
+        Command::Backup {
+            path,
+            device,
+            dry_run,
+        } => {
+            run_backup(&path, &device, dry_run)?;
+        }
     }
 
     Ok(())
@@ -357,6 +374,26 @@ fn add_backup_source(backup_path: &str, device: &str, name: &str, source: &str) 
     }
 
     config::save_config(&config, Path::new(backup_path))?;
+
+    Ok(())
+}
+
+fn run_backup(backup_path: &str, device: &str, dry_run: bool) -> SmartSyncResult {
+    let path = Path::new(backup_path);
+    let config = config::load_config(path)?;
+
+    let mut device_matched = false;
+    for device_config in &config.devices {
+        if device_config.name == device {
+            device_matched = true;
+
+            runner::run_backup(path, device_config, dry_run)?;
+        }
+    }
+
+    if !device_matched {
+        return Err(format!("no device named {} found", device).into());
+    }
 
     Ok(())
 }
