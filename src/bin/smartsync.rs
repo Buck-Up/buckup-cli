@@ -1,112 +1,62 @@
-use std::path::Path;
-
 use clap::Parser;
-use smartsync_cli::{
-    args::{
-        command::Command,
-        config::{
-            backups::{edit_backup::EditBackupCommand, BackupsCommand},
-            registry::RegistryCommand,
-            ConfigCommand,
-        },
-        Args,
-    },
-    config::backups,
-    config::registry,
-    result::SmartSyncResult,
-};
-use smartsync_core::{config, runner};
+use smartsync_cli::{args, config};
+use smartsync_core::{error::BackupError, runner};
 
-fn main() -> SmartSyncResult {
-    let args = Args::parse();
+fn main() -> Result<(), Box<BackupError>> {
+    let args = args::Args::parse();
 
     match args.command {
-        Command::Config { command } => match command {
-            ConfigCommand::Backups { command } => match command {
-                BackupsCommand::ListDevices { path } => {
-                    backups::list_devices(&path)?;
-                }
-                BackupsCommand::Init { path } => {
-                    config::initialize_config(Path::new(&path))?;
-                }
-                BackupsCommand::AddDevice { path, device } => {
-                    backups::add_device(&path, device)?;
-                }
-                BackupsCommand::AddBackup {
-                    path,
-                    device,
-                    name,
-                    dest,
-                    sources,
+        args::Command::Config { command } => match command {
+            args::ConfigCommand::Init => {
+                config::initialize_config()?;
+            }
+            args::ConfigCommand::ListBackups => {
+                config::list_backups()?;
+            }
+            args::ConfigCommand::AddBackup {
+                name,
+                source,
+                device_name,
+                dest,
+            } => {
+                config::add_backup(name, source, device_name, dest)?;
+            }
+            args::ConfigCommand::EditBackup { command } => match command {
+                args::EditBackupCommand::RenameBackup {
+                    current_name,
+                    new_name,
                 } => {
-                    backups::add_device_backup(&path, &device, name, sources, &dest)?;
+                    config::rename_backup(current_name, new_name)?;
                 }
-                BackupsCommand::EditBackup { command } => match command {
-                    EditBackupCommand::RenameBackup {
-                        path,
-                        device,
-                        name,
-                        new_name,
-                    } => {
-                        backups::rename_backup(&path, &device, &name, &new_name)?;
-                    }
-                    EditBackupCommand::SetDest {
-                        path,
-                        device,
-                        name,
-                        dest,
-                    } => {
-                        backups::set_backup_dest(&path, &device, &name, &dest)?;
-                    }
-                    EditBackupCommand::AddSource {
-                        path,
-                        device,
-                        name,
-                        source,
-                    } => {
-                        backups::add_backup_source(&path, &device, &name, &source)?;
-                    }
-                },
-            },
-            ConfigCommand::Registry { command } => match command {
-                RegistryCommand::Init => {
-                    registry::initialize()?;
+                args::EditBackupCommand::AddSource {
+                    backup_name,
+                    source,
+                } => {
+                    config::add_source(backup_name, source)?;
                 }
-                RegistryCommand::ListBackups => {
-                    registry::list_backups()?;
+                args::EditBackupCommand::RenameDevice {
+                    backup_name,
+                    current_name,
+                    new_name,
+                } => {
+                    config::rename_device(backup_name, current_name, new_name)?;
                 }
-                RegistryCommand::AddBackup { name, path } => {
-                    registry::register_backup(&name, &path)?;
+                args::EditBackupCommand::SetDest {
+                    backup_name,
+                    device_name,
+                    dest,
+                } => {
+                    config::set_dest(backup_name, device_name, dest)?;
                 }
             },
         },
-        Command::Backup {
-            path,
-            device,
+        args::Command::Run {
+            backup_name,
+            device_name,
             dry_run,
         } => {
-            run_backup(&path, &device, dry_run)?;
+            runner::run_backup(&backup_name, &device_name, dry_run)?;
         }
-    }
-
-    Ok(())
-}
-
-fn run_backup(backup_path: &str, device: &str, dry_run: bool) -> SmartSyncResult {
-    let path = Path::new(backup_path);
-    let config = config::load_config(path)?;
-
-    let mut device_matched = false;
-    for device_config in &config.devices {
-        if device_config.name == device {
-            device_matched = true;
-
-            runner::run_backup(path, device_config, dry_run)?;
-        }
-    }
-
-    if !device_matched {
-        return Err(format!("no device named {} found", device).into());
     }
 
     Ok(())
