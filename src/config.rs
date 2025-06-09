@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use smartsync_core::{
+use buckup_core::{
     config::{self, Destination},
     error::BackupError,
 };

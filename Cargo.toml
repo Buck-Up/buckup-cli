@@ -1,5 +1,5 @@
 [package]
-name = "smartsync-cli"
+name = "buckup-cli"
 version = "0.1.0"
 edition = "2021"
 
@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 # Uses `../core` for local development
 # uses version `0.1.0` from crates.io when published
-smartsync-core = { path = "../core", version = "0.1.0" }
+buckup-core = { path = "../core", version = "0.1.0" }
 clap = { version = "4.5", features = ["cargo", "derive"] }

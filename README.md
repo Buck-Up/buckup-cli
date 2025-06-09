@@ -1,3 +1,3 @@
-# smartsync-cli
+# buckup-cli
 
-A CLI implementation of the Smart Sync backup system
+A CLI implementation of the Buck Up backup system

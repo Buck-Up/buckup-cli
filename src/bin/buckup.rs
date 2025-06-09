@@ -1,6 +1,6 @@
+use buckup_cli::{args, config};
+use buckup_core::{error::BackupError, runner};
 use clap::Parser;
-use smartsync_cli::{args, config};
-use smartsync_core::{error::BackupError, runner};
 
 fn main() -> Result<(), Box<BackupError>> {
     let args = args::Args::parse();
